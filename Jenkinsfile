@@ -1,4 +1,5 @@
 
+
 pipeline {
     agent any
 
@@ -35,7 +36,7 @@ pipeline {
                 ]) {
                     bat '''
                         @echo off
-                        docker login -u "%REGISTRY_USER%" --password-stdin
+                        echo %REGISTRY_PASSWORD% | docker login -u %REGISTRY_USER% --password-stdin
                         docker push %IMAGE_REPO%:%BUILD_NUMBER%
                         docker logout
                     '''
@@ -44,4 +45,3 @@ pipeline {
         }
     }
 }
-
