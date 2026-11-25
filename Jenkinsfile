@@ -10,18 +10,19 @@ pipeline {
 
     environment {
         IMAGE_REPO = 'sathishdevops2004/food-hotel-app'
+        DOCKER = 'C:\\Users\\acer\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe'
     }
 
     stages {
         stage('Build') {
             steps {
-                bat 'docker build -t %IMAGE_REPO%:%BUILD_NUMBER% .'
+                bat '"%DOCKER%" build -t %IMAGE_REPO%:%BUILD_NUMBER% .'
             }
         }
 
         stage('Test') {
             steps {
-                bat 'docker run --rm %IMAGE_REPO%:%BUILD_NUMBER% python -m pytest /app/backend/tests -q'
+                bat '"%DOCKER%" run --rm %IMAGE_REPO%:%BUILD_NUMBER% python -m pytest /app/backend/tests -q'
             }
         }
 
@@ -36,9 +37,9 @@ pipeline {
                 ]) {
                     bat '''
                         @echo off
-                        echo %REGISTRY_PASSWORD% | docker login -u %REGISTRY_USER% --password-stdin
-                        docker push %IMAGE_REPO%:%BUILD_NUMBER%
-                        docker logout
+                        echo %REGISTRY_PASSWORD% | "%DOCKER%" login -u %REGISTRY_USER% --password-stdin
+                        "%DOCKER%" push %IMAGE_REPO%:%BUILD_NUMBER%
+                        "%DOCKER%" logout
                     '''
                 }
             }
