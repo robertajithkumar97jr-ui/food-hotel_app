@@ -11,9 +11,11 @@ Luxury black-and-gold restaurant ordering app with React, FastAPI and SQLite.
 5. `uvicorn backend.main:app --reload`
 6. Open `http://127.0.0.1:8000`
 
-Optional Razorpay test keys: copy `.env.example` to `.env` and set `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` before running (or set them in your shell). The API exposes a Razorpay test-order endpoint; without keys checkout uses a clearly-labelled local test payment flow.
+Orders do not collect online payments. Set `JWT_SECRET`, `ADMIN_EMAIL`, and `ADMIN_PASSWORD` in the process environment before starting. The application does not automatically load `.env`.
 
-Demo admin: `admin@ajithfoodcorner.com` / `admin123`.
+An admin is created from the environment variables on first startup when no admin exists. Existing databases retain existing accounts.
+
+For Docker, Jenkins, Ansible and EC2 instructions, see [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## Test
 

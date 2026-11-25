@@ -35,7 +35,7 @@ class OrderItem(Base):
 class Register(BaseModel): name: str; email: EmailStr; password: str
 class Login(BaseModel): email: EmailStr; password: str
 class CartLine(BaseModel): id: int; quantity: int
-class Checkout(BaseModel): items: list[CartLine]; order_type: str; address: str = ""; payment_id: str = "TEST_PAYMENT"
+class Checkout(BaseModel): items: list[CartLine]; order_type: str; address: str = ""
 class StatusUpdate(BaseModel): status: str
 
 app = FastAPI(title="Ajith Food Corner API")
@@ -60,7 +60,9 @@ def serialize_order(o): return {"id":o.id,"type":o.order_type,"address":o.addres
 def seed():
     Base.metadata.create_all(engine)
     s=SessionLocal()
-    if not s.query(User).filter_by(email="admin@ajithfoodcorner.com").first(): s.add(User(name="Ajith Admin",email="admin@ajithfoodcorner.com",password=pwd.hash("admin123"),is_admin=True))
+    admin_email, admin_password = os.getenv("ADMIN_EMAIL"), os.getenv("ADMIN_PASSWORD")
+    if admin_email and admin_password and not s.query(User).filter_by(is_admin=True).first():
+        s.add(User(name="Ajith Admin",email=admin_email,password=pwd.hash(admin_password),is_admin=True))
     if not s.query(MenuItem).first():
         data=[("Chettinad Chicken","செட்டிநாடு சிக்கன்","Starters",289,"Fiery roasted chicken in Chettinad spices",False),("Paneer Tikka","பனீர் டிக்கா","Starters",229,"Charred cottage cheese, royal spice rub",True),("Mutton Biryani","மட்டன் பிரியாணி","Biryani",349,"Aromatic seeraga samba rice and tender mutton",False),("Veg Dum Biryani","வெஜ் தம் பிரியாணி","Biryani",219,"Fragrant vegetables and saffron rice",True),("Fish Fry","மீன் வறுவல்","Mains",259,"Coastal fish, turmeric and curry leaf",False),("Kothu Parotta","கொத்து பரோட்டா","Mains",189,"Flaky parotta tossed with masala",True),("Elaneer Payasam","இளநீர் பாயசம்","Desserts",129,"Tender coconut milk pudding",True),("Filter Coffee","ஃபில்டர் காபி","Beverages",79,"Traditional South Indian coffee",True)]
         s.add_all([MenuItem(name=a,tamil_name=b,category=c,price=d,description=e,veg=f) for a,b,c,d,e,f in data])
@@ -77,20 +79,6 @@ def login(body:Login,s:Session=Depends(db)):
     return {"token":token(u),"name":u.name,"admin":u.is_admin}
 @app.get("/api/menu")
 def menu(s:Session=Depends(db)): return [serialize_menu(x) for x in s.query(MenuItem).filter_by(available=True).all()]
-@app.post("/api/payments/razorpay-order")
-def razorpay_order(body:Checkout, user:User=Depends(current), s:Session=Depends(db)):
-    key_id, secret = os.getenv("RAZORPAY_KEY_ID"), os.getenv("RAZORPAY_KEY_SECRET")
-    if not key_id or not secret: return {"mode":"local"}
-    total=0
-    for line in body.items:
-        item=s.get(MenuItem,line.id)
-        if not item or line.quantity < 1: raise HTTPException(400,"Invalid menu item")
-        total += item.price*line.quantity
-    try:
-        import razorpay
-        order=razorpay.Client(auth=(key_id,secret)).order.create({"amount":round(total*100),"currency":"INR","receipt":"afc-"+str(user.id)+"-"+str(int(datetime.utcnow().timestamp()))})
-        return {"mode":"razorpay","key":key_id,"orderId":order["id"],"amount":order["amount"]}
-    except Exception: raise HTTPException(502,"Razorpay test order could not be created")
 @app.post("/api/orders")
 def checkout(body:Checkout,user:User=Depends(current),s:Session=Depends(db)):
     if body.order_type not in ["Delivery","Pickup","Dine-in"] or not body.items: raise HTTPException(400,"Add items and choose an order type")
@@ -99,7 +87,7 @@ def checkout(body:Checkout,user:User=Depends(current),s:Session=Depends(db)):
         item=s.get(MenuItem,line.id)
         if not item or not item.available or line.quantity<1: raise HTTPException(400,"Invalid menu item")
         products.append((item,line.quantity)); total+=item.price*line.quantity
-    o=Order(user_id=user.id,order_type=body.order_type,address=body.address,total=total,payment_status="Paid" if body.payment_id else "Pending")
+    o=Order(user_id=user.id,order_type=body.order_type,address=body.address,total=total,payment_status="Not collected")
     s.add(o);s.flush()
     for item,q in products:s.add(OrderItem(order_id=o.id,menu_item_id=item.id,name=item.name,quantity=q,price=item.price))
     s.commit();s.refresh(o);return serialize_order(o)

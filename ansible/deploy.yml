@@ -1,0 +1,50 @@
+---
+- name: Deploy Ajith Food Corner demo
+  hosts: restaurant
+  become: true
+  vars:
+    image_name: "{{ lookup('env', 'IMAGE_NAME') }}"
+  tasks:
+    - name: Check image name is supplied
+      ansible.builtin.assert:
+        that: image_name | length > 0
+    - name: Check Docker is available
+      ansible.builtin.command: docker --version
+      changed_when: false
+    - name: Pull requested image
+      ansible.builtin.command: docker pull {{ image_name }}
+      changed_when: true
+    - name: Ensure database volume exists
+      ansible.builtin.command: docker volume create ajith_data
+      changed_when: false
+    - name: Remove old application container
+      ansible.builtin.command: docker rm -f ajith-food-corner
+      register: removal
+      failed_when: removal.rc != 0 and 'No such container' not in removal.stderr
+      changed_when: removal.rc == 0
+    - name: Start application on localhost
+      ansible.builtin.command:
+        argv:
+          - docker
+          - run
+          - -d
+          - --name
+          - ajith-food-corner
+          - --restart
+          - unless-stopped
+          - -p
+          - 127.0.0.1:8000:8000
+          - -v
+          - ajith_data:/data
+          - --env-file
+          - /etc/ajith-food-corner.env
+          - "{{ image_name }}"
+      changed_when: true
+    - name: Wait for API
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8000/api/menu
+        status_code: 200
+      register: health
+      retries: 15
+      delay: 2
+      until: health.status | default(0) == 200
