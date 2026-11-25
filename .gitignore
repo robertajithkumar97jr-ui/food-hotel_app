@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+ajith_food_corner.db
+frontend/node_modules/
+frontend/dist/
+.env
